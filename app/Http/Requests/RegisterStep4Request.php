@@ -53,8 +53,8 @@ class RegisterStep4Request extends FormRequest
                 return;
             }
 
-            if ($code->user->hasVerifiedPhone()) {
-                $validator->errors()->add('verification_code', 'Phone already verified.');
+            if ($code->user->hasVerifiedEmail()) {
+                $validator->errors()->add('verification_code', 'Email already verified.');
                 return;
             }
 

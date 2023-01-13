@@ -37,7 +37,13 @@ class VerificationCode extends Model
 
     private static function generateCode(): int
     {
-        return intval(random_int(1, 9) . random_int(10000, 99999));
+        $code = '';
+
+        for ($i = 0; $i < 6; $i++) {
+            $code .= mt_rand(1, 9);
+        }
+
+        return $code;
     }
 
     public static function createEmailCodeForUser(User $user)

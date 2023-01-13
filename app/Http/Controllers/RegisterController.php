@@ -107,15 +107,12 @@ class RegisterController extends Controller
 
         $user = User::where('phone', $validated['registration_token'])->first();
 
-        $token = auth()->login($user);
-
+        $token = $this->login($user);
 
         return [
             'access_token' => $token,
             'token_type' => 'bearer',
             'expires_in' => auth()->factory()->getTTL() * 60,
-            'user_id' => $user->id,
-            'email' => $user->email,
         ];
 
 
@@ -125,6 +122,14 @@ class RegisterController extends Controller
         // 3. login user
         // 4. return token
 
+    }
+
+    private function login(User $user): string
+    {
+        return auth()->claims([
+            'user_id' => $user->id,
+            'email' => $user->email
+        ])->login($user);
     }
 
 

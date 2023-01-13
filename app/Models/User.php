@@ -57,6 +57,11 @@ class User extends Authenticatable implements JWTSubject
         return $this->hasOne(Details::class);
     }
 
+    public function getRegistrationToken()
+    {
+        return $this->phone;
+    }
+
     public function consentToPhoneMarketing()
     {
         $this->details->update([

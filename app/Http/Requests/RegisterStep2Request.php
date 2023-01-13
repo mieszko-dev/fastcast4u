@@ -60,17 +60,17 @@ class RegisterStep2Request extends FormRequest
                 return;
             }
 
+            if ($code->user->getRegistrationToken() !== $this->input('registration_token')) {
+                $validator->errors()->add('registration_token', 'The registration token is invalid.');
+                return;
+            }
+
 
             if ($code->user->hasVerifiedPhone()) {
                 $validator->errors()->add('verification_code', 'Phone number already verified.');
                 return;
             }
 
-
-            if ($code->user->phone !== $this->input('registration_token')) {
-                $validator->errors()->add('registration_token', 'The registration token is invalid.');
-                return;
-            }
 
             $code->user->markPhoneAsVerified();
             $code->delete();
