@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use Illuminate\Support\Facades\Crypt;
 use Tests\TestCase;
 
 class SecondStepTest extends TestCase
@@ -17,11 +18,7 @@ class SecondStepTest extends TestCase
 
     public function test_requires_verification_code_in_request()
     {
-        $response = $this->postJson('/api/register/step1', [
-            'phone' => '+48123123123',
-        ])->assertOk();
-
-        $registrationToken = $response->decodeResponseJson()['registration_token'];
+        $registrationToken = $this->doFirstStep();
 
         $this->postJson($this->url, ['registration_token' => $registrationToken])
             ->assertUnprocessable()
@@ -30,12 +27,15 @@ class SecondStepTest extends TestCase
 
     public function test_it_validates_verification_code()
     {
-        $response = $this->postJson('/api/register/step1', [
-            'phone' => '+48123123123',
-        ])->assertOk();
-        $registrationToken = $response->decodeResponseJson()['registration_token'];
+        $registrationToken = $this->doFirstStep();
+
         $user = User::findByToken($registrationToken);
         $code = $user->verificationCodes()->first();
+
+        $this->postJson($this->url, [
+            'registration_token' => $registrationToken,
+            'verification_code' => $code->code,
+        ])->assertOk();
 
         $this->postJson($this->url, [
             'registration_token' => $registrationToken,
@@ -46,6 +46,25 @@ class SecondStepTest extends TestCase
             'registration_token' => $registrationToken,
             'verification_code' => 123,
         ])->assertJsonValidationErrorFor('verification_code');
+
+        $this->postJson($this->url, [
+            'registration_token' => $registrationToken,
+            'verification_code' => '23fe13',
+        ])->assertJsonValidationErrorFor('verification_code');
+    }
+
+    public function test_it_returns_token()
+    {
+        $registrationToken = $this->doFirstStep();
+
+        $user = User::findByToken($registrationToken);
+        $code = $user->verificationCodes()->first();
+
+        $this->postJson($this->url, [
+            'registration_token' => $registrationToken,
+            'verification_code' => $code->code,
+        ])->assertJson(['registration_token' => $registrationToken]);
+
     }
 
 

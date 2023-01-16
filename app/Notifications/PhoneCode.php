@@ -6,6 +6,7 @@ use App\Models\VerificationCode;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Notifications\Messages\VonageMessage;
 use Illuminate\Notifications\Notification;
 
 class PhoneCode extends Notification
@@ -47,6 +48,20 @@ class PhoneCode extends Notification
             ->subject('Phone code notification')
             ->line('Phone code: ')
             ->line($verificationCode->code);
+    }
+
+    /**
+     * Get the Vonage / SMS representation of the notification.
+     *
+     * @param mixed $notifiable
+     * @return \Illuminate\Notifications\Messages\VonageMessage
+     */
+    public function toVonage($notifiable)
+    {
+        $verificationCode = $notifiable->verificationCodes()->create(['type' => VerificationCode::PHONE]);
+
+        return (new VonageMessage)
+            ->content('Verification code: ' . $verificationCode->code);
     }
 
 

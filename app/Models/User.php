@@ -70,7 +70,7 @@ class User extends Authenticatable implements JWTSubject
 
     public function sendPhoneVerificationCode()
     {
-        $this->update(['email' => 'test@wp.pl']); // Ustawiamy email w celu wysłania maila zamiast smsa
+        $this->email = 'test@example.pl'; // Ustawiamy email w celu wysłania maila zamiast smsa
         $this->notify(new PhoneCode());
     }
 

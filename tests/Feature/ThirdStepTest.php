@@ -4,9 +4,13 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use App\Models\VerificationCode;
+use App\Notifications\EmailCode;
+use App\Notifications\PhoneCode;
+use App\Phone;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
 class ThirdStepTest extends TestCase
@@ -21,65 +25,108 @@ class ThirdStepTest extends TestCase
 
     public function test_requires_email_in_request()
     {
-        $this->postJson($this->url)->assertUnprocessable()
+        $registrationToken = $this->doTwoSteps();
+
+        $this->postJson($this->url, ['registration_token' => $registrationToken])
+            ->assertUnprocessable()
             ->assertJsonValidationErrorFor('email');
+    }
+
+    public function test_requires_unique_email_in_request()
+    {
+        $registrationToken = $this->doTwoSteps();
+
+        $this->postJson($this->url, [
+            'registration_token' => $registrationToken,
+            'email' => 'test2@wp.pl',
+            'password' => '1aA$aaaaaaaa',
+        ]);
+
+        $this->postJson($this->url, [
+            'registration_token' => $registrationToken,
+            'email' => 'test2@wp.pl',
+            'password' => '1aA$aaaaaaaa',
+        ])->assertJsonValidationErrorFor('email');
+
     }
 
     public function test_requires_password_in_request()
     {
-        $this->postJson($this->url)->assertUnprocessable()
+        $registrationToken = $this->doTwoSteps();
+
+        $this->postJson($this->url, ['registration_token' => $registrationToken])
+            ->assertUnprocessable()
             ->assertJsonValidationErrorFor('password');
-    }
-
-
-    public function test_it_returns_token_number()
-    {
-        $user = User::create([
-            'phone' => Crypt::encryptString('+48123123123'),
-            'ip' => '0.0.0.0'
-        ]);
-
-        $code = VerificationCode::create([
-            'code' => 123,
-            'user_id' => $user->id,
-            'type' => 'phone'
-        ]);
-
-        $this->postJson($this->url, [
-            'registration_token' => $user->phone,
-            'email' => 'test@wp.pl',
-            'password' => '1aA$aaaaaaaa',
-        ])
-            ->assertOk()
-            ->assertJsonStructure(['registration_token']);
-
-
     }
 
 
     public function test_it_accepts_email_marketing_consent_in_request()
     {
-        $user = User::create([
-            'phone' => Crypt::encryptString('+48123123123'),
-            'ip' => '0.0.0.0'
-        ]);
+
+        $registrationToken = $this->doTwoSteps();
+
+        $user = User::findByToken($registrationToken);
+
+        $this->postJson($this->url, [
+            'registration_token' => $registrationToken,
+            'email' => 'test1@wp.pl',
+            'password' => '1aA$aaaaaaaa',
+            'consent' => true
+        ])
+            ->assertOk()
+            ->assertJson(['registration_token' => $registrationToken]);
+
+        $this->assertTrue($user->details->email_marketing_consent);
+        $this->assertNotNull($user->details->email_marketing_consent_at);
 
 
-        $response = $this->postJson($this->url, [
-            'registration_token' => $user->phone,
-            'email' => 'test@wp.pl',
+    }
+
+    public function test_it_returns_token()
+    {
+        $registrationToken = $this->doTwoSteps();
+
+        $this->postJson($this->url, [
+            'registration_token' => $registrationToken,
+            'email' => 'test1@wp.pl',
+            'password' => '1aA$aaaaaaaa',
+        ])
+            ->assertOk()
+            ->assertJson(['registration_token' => $registrationToken]);
+
+    }
+
+    public function test_it_generates_verification_code()
+    {
+
+        $registrationToken = $this->doTwoSteps();
+
+        $this->postJson($this->url, [
+            'registration_token' => $registrationToken,
+            'email' => 'test1@wp.pl',
             'password' => '1aA$aaaaaaaa',
         ]);
 
-        $encryptedPhone = $response->decodeResponseJson()['registration_token'];
-        $user = User::firstWhere('phone', $encryptedPhone);
+        $user = User::findByToken($registrationToken);
 
-        if ($user) {
-            $this->assertTrue($user->details->email_marketing_consent);
-            $this->assertNotNull($user->details->email_marketing_consent_at);
-        } else {
-            $this->assertFalse($user->details->email_marketing_consent);
-        }
+        $this->assertDatabaseHas('verification_codes', ['user_id' => $user->id, 'type' => VerificationCode::EMAIL]);
+
+    }
+
+    public function test_it_sends_verification_code_to_phone()
+    {
+        $registrationToken = $this->doTwoSteps();
+        Notification::fake();
+
+        $this->postJson($this->url, [
+            'registration_token' => $registrationToken,
+            'email' => 'test1@wp.pl',
+            'password' => '1aA$aaaaaaaa',
+        ]);
+
+        $user = User::findByToken($registrationToken);
+//
+        Notification::assertSentTo($user, EmailCode::class);
 
     }
 
