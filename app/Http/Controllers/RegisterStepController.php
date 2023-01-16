@@ -41,7 +41,7 @@ class RegisterStepController extends Controller
 
     protected function logRequest(array $data)
     {
-        Log::info('Step ' . $this->step . ' request', ['data' => $data]);
+        Log::info('Step ' . $this->step . ' request', ['data' => $data, 'uri' => request()->url(), 'method' => request()->method()]);
     }
 
     protected function enableNextRegistrationStep()
