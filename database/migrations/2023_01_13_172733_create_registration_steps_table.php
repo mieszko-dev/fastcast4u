@@ -12,8 +12,11 @@ return new class extends Migration {
      */
     public function up()
     {
-        Schema::create('registration_tokens', function (Blueprint $table) {
+        Schema::create('registration_steps', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('user_id');
+            $table->integer('step');
+            $table->boolean('enabled')->default(false);
             $table->timestamps();
         });
     }
@@ -25,6 +28,6 @@ return new class extends Migration {
      */
     public function down()
     {
-        Schema::dropIfExists('registration_tokens');
+        Schema::dropIfExists('registration_steps');
     }
 };

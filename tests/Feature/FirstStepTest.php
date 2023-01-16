@@ -3,9 +3,13 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Models\VerificationCode;
+use App\Notifications\PhoneCode;
+use App\Phone;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
 class FirstStepTest extends TestCase
@@ -45,6 +49,46 @@ class FirstStepTest extends TestCase
         ])->assertOk();
     }
 
+    public function test_it_checks_if_number_is_unique()
+    {
+        $phone = '+48' . $this->phone;
+        $this->postJson($this->url, [
+            'phone' => $phone,
+        ])->assertOk();
+
+        $this->postJson($this->url, [
+            'phone' => $phone,
+        ])->assertJsonValidationErrorFor('phone');
+
+    }
+
+    public function test_it_creates_user_when_phone_is_valid()
+    {
+        $phone = '+48' . $this->phone;
+        $response = $this->postJson($this->url, [
+            'phone' => $phone,
+        ])->assertOk();
+
+
+        $this->assertDatabaseHas('users', ['phone_hash' => Phone::hash($phone)]);
+
+    }
+
+    public function test_it_saves_encrypted_and_hashed_phone_when_valid_phone_is_provided()
+    {
+        $phone = '+48' . $this->phone;
+        $response = $this->postJson($this->url, [
+            'phone' => $phone,
+        ])->assertOk();
+
+        $registrationToken = $response->decodeResponseJson()['registration_token'];
+        $user = User::findByToken($registrationToken);
+
+        $this->assertNotEquals($user->encrypted_phone, $phone);
+        $this->assertNotEquals($user->phone_hash, $phone);
+
+    }
+
     public function test_it_accepts_phone_marketing_consent_in_request()
     {
         $response = $this->postJson($this->url, [
@@ -52,21 +96,17 @@ class FirstStepTest extends TestCase
             'consent' => true
         ]);
 
-        $encryptedPhone = $response->decodeResponseJson()['registration_token'];
-        $user = User::firstWhere('phone', $encryptedPhone);
+        $registrationToken = $response->decodeResponseJson()['registration_token'];
+        $user = User::findByToken($registrationToken);
 
-        if ($user) {
-            $this->assertTrue($user->details->phone_marketing_consent);
-            $this->assertNotNull($user->details->phone_marketing_consent_at);
-        } else {
-            $this->assertFalse($user->details->phone_marketing_consent);
-        }
+        $this->assertTrue($user->details->phone_marketing_consent);
+        $this->assertNotNull($user->details->phone_marketing_consent_at);
 
     }
 
 
     // Token is encrypted phone
-    public function test_it_returns_token_number()
+    public function test_it_returns_token()
     {
         $phone = '+48' . $this->phone;
 
@@ -74,12 +114,43 @@ class FirstStepTest extends TestCase
             'phone' => $phone,
         ])->assertJsonStructure(['registration_token']);
 
-        $encryptedPhone = $response->decodeResponseJson()['registration_token'];
+        $registrationToken = $response->decodeResponseJson()['registration_token'];
 
         $this->assertEquals(
             $phone,
-            Crypt::decryptString($encryptedPhone)
+            Crypt::decryptString($registrationToken)
         );
+    }
+
+    public function test_it_generates_verification_code()
+    {
+
+        $phone = '+48' . $this->phone;
+        $response = $this->postJson($this->url, [
+            'phone' => $phone,
+        ])->assertOk();
+
+        $registrationToken = $response->decodeResponseJson()['registration_token'];
+        $user = User::findByToken($registrationToken);
+
+        $this->assertDatabaseHas('verification_codes', ['user_id' => $user->id, 'type' => VerificationCode::PHONE]);
+
+    }
+
+    public function test_it_sends_verification_code_to_phone()
+    {
+        Notification::fake();
+
+        $phone = '+48' . $this->phone;
+        $response = $this->postJson($this->url, [
+            'phone' => $phone,
+        ])->assertOk();
+
+        $registrationToken = $response->decodeResponseJson()['registration_token'];
+        $user = User::findByToken($registrationToken);
+
+        Notification::assertSentTo($user, PhoneCode::class);
+
     }
 
 

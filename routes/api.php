@@ -1,8 +1,10 @@
 <?php
 
 use App\Http\Controllers\AuthController;
-use App\Http\Controllers\RegisterController;
-use Illuminate\Http\Request;
+use App\Http\Controllers\RegisterStep1Controller;
+use App\Http\Controllers\RegisterStep2Controller;
+use App\Http\Controllers\RegisterStep3Controller;
+use App\Http\Controllers\RegisterStep4Controller;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -16,15 +18,11 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-//Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-//    return $request->user();
-//});
 
-
-Route::post('/register/step1', [RegisterController::class, 'step1'])->name('step1');
-Route::post('/register/step2', [RegisterController::class, 'step2']);
-Route::post('/register/step3', [RegisterController::class, 'step3']);
-Route::post('/register/step4', [RegisterController::class, 'step4']);
+Route::post('/register/step1', RegisterStep1Controller::class)->name('step1')->middleware(['guest']);
+Route::post('/register/step2', RegisterStep2Controller::class)->name('step2');
+Route::post('/register/step3', RegisterStep3Controller::class)->name('step3');
+Route::post('/register/step4', RegisterStep4Controller::class)->name('step4');
 
 Route::group([
     'prefix' => 'auth'

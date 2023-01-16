@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Str;
 
 class VerificationCode extends Model
 {
@@ -16,26 +17,18 @@ class VerificationCode extends Model
     protected $guarded = [];
 
     protected $casts = [
-        'activated' => 'boolean'
+        'used' => 'boolean'
     ];
 
-    public static function createPhoneCodeForUser(User $user)
+
+    protected static function booted()
     {
-        return self::generateCodeForUser($user, self::PHONE);
+        static::creating(function ($user) {
+            $user->code = self::generateCode();
+        });
     }
 
-    private static function generateCodeForUser(User $user, string $type)
-    {
-        self::where('type', $type)->delete();
-
-        return self::create([
-            'code' => self::generateCode(),
-            'user_id' => $user->id,
-            'type' => $type
-        ]);
-    }
-
-    private static function generateCode(): int
+    public static function generateCode(): int
     {
         $code = '';
 
@@ -46,10 +39,6 @@ class VerificationCode extends Model
         return $code;
     }
 
-    public static function createEmailCodeForUser(User $user)
-    {
-        return self::generateCodeForUser($user, self::EMAIL);
-    }
 
     public function user(): BelongsTo
     {

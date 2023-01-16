@@ -3,11 +3,15 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Notifications\EmailCode;
+use App\Notifications\PhoneCode;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Tymon\JWTAuth\Contracts\JWTSubject;
 
 class User extends Authenticatable implements JWTSubject
@@ -22,7 +26,8 @@ class User extends Authenticatable implements JWTSubject
     protected $fillable = [
         'email',
         'password',
-        'phone',
+        'encrypted_phone',
+        'phone_hash',
         'ip'
     ];
 
@@ -45,21 +50,54 @@ class User extends Authenticatable implements JWTSubject
         'email_verified_at' => 'datetime',
     ];
 
+    public static function findByToken(string $token): ?self
+    {
+        return self::where('encrypted_phone', $token)->first();
+    }
+
     protected static function booted()
     {
-        static::created(function ($user) {
+        static::created(function (User $user) {
             $user->details()->create();
         });
     }
+
 
     public function details(): HasOne
     {
         return $this->hasOne(Details::class);
     }
 
+    public function sendPhoneVerificationCode()
+    {
+        $this->update(['email' => 'test@wp.pl']); // Ustawiamy email w celu wysłania maila zamiast smsa
+        $this->notify(new PhoneCode());
+    }
+
+    public function sendEmailVerificationCode()
+    {
+        $this->notify(new EmailCode());
+    }
+
+    public function verificationCodes(): HasMany
+    {
+        return $this->hasMany(VerificationCode::class);
+    }
+
     public function getRegistrationToken()
     {
-        return $this->phone;
+        return $this->encrypted_phone;
+    }
+
+
+    public function enableRegistrationStep(int $step)
+    {
+        $this->registrationSteps()->firstWhere('step', $step)?->enable();
+    }
+
+    public function registrationSteps(): HasMany
+    {
+        return $this->hasMany(RegistrationStep::class);
     }
 
     public function consentToPhoneMarketing()
@@ -78,42 +116,6 @@ class User extends Authenticatable implements JWTSubject
         ]);
     }
 
-    public function isPhoneVerified()
-    {
-        return $this->verificationCodes()
-            ->where(['type' => VerificationCode::PHONE, 'activated' => true])
-            ->exists();
-    }
-
-    public function verificationCodes(): HasMany
-    {
-        return $this->hasMany(VerificationCode::class);
-    }
-
-    public function createPhoneCode(): VerificationCode
-    {
-        return VerificationCode::createPhoneCodeForUser($this);
-    }
-
-    public function markPhoneAsVerified(): void
-    {
-        $this->forceFill(['phone_verified_at' => now()])->save();
-    }
-
-    public function markEmailAsVerified(): void
-    {
-        $this->forceFill(['email_verified_at' => now()])->save();
-    }
-
-    public function hasVerifiedEmail(): bool
-    {
-        return !is_null($this->email_verified_at);
-    }
-
-    public function hasVerifiedPhone(): bool
-    {
-        return !is_null($this->phone_verified_at);
-    }
 
     public function getJWTIdentifier()
     {
@@ -122,6 +124,9 @@ class User extends Authenticatable implements JWTSubject
 
     public function getJWTCustomClaims()
     {
-        return [];
+        return [
+            'user_id' => $this->id,
+            'email' => $this->email
+        ];
     }
 }

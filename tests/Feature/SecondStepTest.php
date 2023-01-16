@@ -3,10 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\User;
-use App\Models\VerificationCode;
-use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Foundation\Testing\WithFaker;
-use Illuminate\Support\Facades\Crypt;
 use Tests\TestCase;
 
 class SecondStepTest extends TestCase
@@ -15,56 +11,41 @@ class SecondStepTest extends TestCase
 
     public function test_requires_token_in_request()
     {
-        $this->postJson($this->url)->assertUnprocessable()
-            ->assertJsonValidationErrorFor('registration_token');
+        $this->postJson($this->url)
+            ->assertForbidden();
     }
 
     public function test_requires_verification_code_in_request()
     {
-        $this->postJson($this->url)->assertUnprocessable()
+        $response = $this->postJson('/api/register/step1', [
+            'phone' => '+48123123123',
+        ])->assertOk();
+
+        $registrationToken = $response->decodeResponseJson()['registration_token'];
+
+        $this->postJson($this->url, ['registration_token' => $registrationToken])
+            ->assertUnprocessable()
             ->assertJsonValidationErrorFor('verification_code');
     }
 
-    public function test_it_validates_code()
+    public function test_it_validates_verification_code()
     {
-        $user = User::create([
-            'phone' => Crypt::encryptString('+48123123123'),
-            'ip' => '0.0.0.0'
-        ]);
-
-        $code = VerificationCode::create([
-            'code' => 123,
-            'user_id' => $user->id,
-            'type' => 'phone'
-        ]);
-
-        $this->postJson($this->url, [
-            'registration_token' => $user->phone,
-            'verification_code' => $code->code,
+        $response = $this->postJson('/api/register/step1', [
+            'phone' => '+48123123123',
         ])->assertOk();
-    }
-
-    public function test_it_returns_token_number()
-    {
-        $user = User::create([
-            'phone' => Crypt::encryptString('+48123123123'),
-            'ip' => '0.0.0.0'
-        ]);
-
-        $code = VerificationCode::create([
-            'code' => 123,
-            'user_id' => $user->id,
-            'type' => 'phone'
-        ]);
+        $registrationToken = $response->decodeResponseJson()['registration_token'];
+        $user = User::findByToken($registrationToken);
+        $code = $user->verificationCodes()->first();
 
         $this->postJson($this->url, [
-            'registration_token' => $user->phone,
-            'verification_code' => $code->code,
-        ])
-            ->assertOk()
-            ->assertJsonStructure(['registration_token']);
+            'registration_token' => $registrationToken,
+            'verification_code' => '000000',
+        ])->assertJsonValidationErrorFor('verification_code');
 
-
+        $this->postJson($this->url, [
+            'registration_token' => $registrationToken,
+            'verification_code' => 123,
+        ])->assertJsonValidationErrorFor('verification_code');
     }
 
 

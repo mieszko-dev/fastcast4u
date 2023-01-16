@@ -16,7 +16,8 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('user_id');
             $table->string('code');
-            $table->enum('type', ['email', 'phone']);
+//            $table->boolean('used')->default(false);
+            $table->enum('type', ['phone', 'email']);
             $table->timestamps();
         });
     }

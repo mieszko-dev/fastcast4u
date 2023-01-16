@@ -16,8 +16,8 @@ class FourthStepTest extends TestCase
 
     public function test_requires_token_in_request()
     {
-        $this->postJson($this->url)->assertUnprocessable()
-            ->assertJsonValidationErrorFor('registration_token');
+        $this->postJson($this->url)
+            ->assertForbidden();
     }
 
     public function test_requires_verification_code_in_request()

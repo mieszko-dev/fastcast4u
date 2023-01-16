@@ -3,21 +3,12 @@
 namespace App\Http\Requests;
 
 use App\Models\User;
-use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Facades\Crypt;
+use App\Phone;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Unique;
 
-class RegisterStep1Request extends FormRequest
+class RegisterStep1Request extends RegisterStepRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     *
-     * @return bool
-     */
-    public function authorize()
-    {
-        return true;
-    }
-
     /**
      * Get the validation rules that apply to the request.
      *
@@ -26,26 +17,15 @@ class RegisterStep1Request extends FormRequest
     public function rules()
     {
         return [
-            'phone' => 'required|string|phone:AUTO', // check if not used or used and not verified
-            'consent' => 'boolean'
+            'phone' => [
+                'required', 'string', 'phone:AUTO',
+                function ($attribute, $value, $fail) {
+                    if (User::where('phone_hash', Phone::hash($value))->exists()) {
+                        $fail('The ' . $attribute . ' is already used.');
+                    }
+                },
+            ],
+            'consent' => 'sometimes|boolean'
         ];
     }
-
-    /**
-     * Configure the validator instance.
-     *
-     * @param \Illuminate\Validation\Validator $validator
-     * @return void
-     */
-//    public function withValidator($validator)
-//    {
-//        $validator->after(function ($validator) {
-//
-//            $encryptedPhone = Crypt::encryptString($this->input('phone'));
-//            if (User::where('phone', $encryptedPhone)->exists()) {
-//                $validator->errors()->add('phone', 'Your phone number is not verified.');
-//            }
-//
-//        });
-//    }
 }
