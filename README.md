@@ -1,6 +1,8 @@
 1. Aplikacja wykorzystuje Laravel Sail, w którym mamy od razu m.in. DB, Mailhog. Przy uruchamianiu aplikacji to może być
    przydatne: https://laravel.com/docs/9.x/sail#installing-composer-dependencies-for-existing-projects
-2. Każdy krok procesu rejestracji to oddzielny kontroler i form request.
+2. Do obsługi JWT wykorzystałem https://jwt-auth.readthedocs.io/
+3. Na początku trzeba wygenerować klucze `php artisan key:generate` oraz `php artisan jwt:secret`.
+4. Każdy krok procesu rejestracji to oddzielny kontroler i form request.
 3. W pierwszym kroku nadajemy potencjalnemu użytkownikowi `registration_token`, który wykorzystujemy następnie w
    kolejnych krokach. W odpowiedzi na pierwszy krok użytkownik otrzymuje `registration_token`, który należy wstawić
    do `body` każdego następnego requestu w pozostałych krokach.
